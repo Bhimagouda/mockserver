@@ -1,0 +1,10 @@
+services:
+  mock-server:
+    build: .
+    container_name: mock-server
+    ports:
+      - "9090:9090"   # Spring admin API
+      - "9091:9091"   # WireMock (payment stubs)
+    environment:
+      SERVER_PORT: 9090
+      WIREMOCK_PORT: 9091

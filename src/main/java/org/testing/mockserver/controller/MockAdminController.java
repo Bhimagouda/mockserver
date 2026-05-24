@@ -3,11 +3,15 @@ package org.testing.mockserver.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.testing.mockserver.model.PaymentScenario;
 import org.testing.mockserver.service.PaymentMockService;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -17,39 +21,47 @@ public class MockAdminController {
 
     private final PaymentMockService paymentMockService;
 
-    @PostMapping("/payment/success")
-    public ResponseEntity<Map<String, String>> registerPaymentSuccess() {
-        paymentMockService.registerSuccess();
-        return ResponseEntity.ok(Map.of("registered", "POST /bank/payment -> 200 SUCCESS"));
+    @PostMapping("/payment/{scenario}")
+    public ResponseEntity<Map<String, String>> activatePaymentScenario(@PathVariable String scenario) {
+        return PaymentScenario.from(scenario)
+                .map(s -> {
+                    paymentMockService.activate(s);
+                    return ResponseEntity.ok(Map.of("active", s.toSlug()));
+                })
+                .orElseGet(() -> ResponseEntity.badRequest().body(
+                        Map.of("error", "Unknown scenario: " + scenario
+                                + ". Supported: " + PaymentScenario.supportedValues())
+                ));
     }
 
-    @PostMapping("/payment/failure")
-    public ResponseEntity<Map<String, String>> registerPaymentFailure() {
-        paymentMockService.registerFailure();
-        return ResponseEntity.ok(Map.of("registered", "POST /bank/payment -> 500 FAILED"));
+    @GetMapping("/payment/active")
+    public ResponseEntity<Map<String, String>> getActiveScenario() {
+        String active = paymentMockService.getActiveScenario()
+                .map(PaymentScenario::toSlug)
+                .orElse("none");
+        return ResponseEntity.ok(Map.of("active", active));
     }
 
-    @PostMapping("/payment/timeout")
-    public ResponseEntity<Map<String, String>> registerPaymentTimeout() {
-        paymentMockService.registerTimeout();
-        return ResponseEntity.ok(Map.of("registered", "POST /bank/payment -> 200 with 10s delay"));
+    @GetMapping("/payment/requests")
+    public ResponseEntity<Map<String, Object>> getPaymentRequests() {
+        List<Map<String, Object>> requests = paymentMockService.getPaymentRequests();
+        return ResponseEntity.ok(Map.of("requests", requests));
     }
 
-    @PostMapping("/payment/unauthorized")
-    public ResponseEntity<Map<String, String>> registerPaymentUnauthorized() {
-        paymentMockService.registerUnauthorized();
-        return ResponseEntity.ok(Map.of("registered", "POST /bank/payment -> 401 UNAUTHORIZED"));
+    @GetMapping("/payment/count")
+    public ResponseEntity<Map<String, Integer>> getPaymentRequestCount() {
+        return ResponseEntity.ok(Map.of("count", paymentMockService.getPaymentRequestCount()));
     }
 
-    @PostMapping("/payment/rate-limit")
-    public ResponseEntity<Map<String, String>> registerPaymentRateLimit() {
-        paymentMockService.registerRateLimit();
-        return ResponseEntity.ok(Map.of("registered", "POST /bank/payment -> 429 RATE_LIMITED"));
+    @DeleteMapping("/requests")
+    public ResponseEntity<Map<String, Boolean>> clearRequestHistory() {
+        paymentMockService.clearRequests();
+        return ResponseEntity.ok(Map.of("cleared", true));
     }
 
     @DeleteMapping("/reset")
     public ResponseEntity<Map<String, String>> resetAllStubs() {
         paymentMockService.resetAll();
-        return ResponseEntity.ok(Map.of("reset", "all stubs cleared"));
+        return ResponseEntity.ok(Map.of("active", "none"));
     }
 }
