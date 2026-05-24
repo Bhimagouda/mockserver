@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: mockserver
+  docker:
+    compose:
+      enabled: false
+
+server:
+  port: 9090
+
+wiremock:
+  port: 9091
